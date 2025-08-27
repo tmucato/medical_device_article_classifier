@@ -1,0 +1,55 @@
+services:
+  python_app:
+    build:
+      context: .
+      dockerfile: ./python/Dockerfile
+    ports:
+      - "4000:8000"
+    volumes:
+      - ./python:/app
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/mydatabase
+      - WEAVIATE_URL=http://weaviate:8080
+      - BIOBERT_INFERENCE_URL=http://biobert:5000
+    depends_on:
+      - mongodb
+      - weaviate
+      - biobert
+
+  weaviate:
+    image: semitechnologies/weaviate:1.32.4
+    ports:
+      - "4040:8080"
+    volumes:
+      - /mnt/data/opit_cer_volumes/weaviate_data:/var/lib/weaviate
+    restart: on-failure
+    environment:
+      QUERY_DEFAULTS_LIMIT: 25
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'
+      PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
+      ENABLE_MODULES: 'text2vec-transformers'
+      DEFAULT_VECTORIZER_MODULE: 'text2vec-transformers'
+      TRANSFORMERS_INFERENCE_API: 'http://biobert:5000'
+      CLUSTER_HOSTNAME: 'node1'
+
+  biobert:
+    build:
+      context: ./biobert
+      dockerfile: Dockerfile
+    ports:
+      - "5050:5000"
+    volumes:
+      - /mnt/data/opit_cer_volumes/biobert_models:/app/models
+    restart: on-failure
+    command: ["python", "inference_server.py"]
+
+  mongodb:
+    image: mongo:8.0
+    ports:
+      - "27017:27017"
+    volumes:
+      - /mnt/data/opit_cer_volumes/mongodb_data:/data/db
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: root
